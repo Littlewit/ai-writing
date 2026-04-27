@@ -3,7 +3,6 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, HTMLResponse
-from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
 from langchain.messages import HumanMessage, SystemMessage, AIMessage
 from typing import List
@@ -67,15 +66,6 @@ async def lifespan(app: FastAPI):
 
 # 应用实例
 app = FastAPI(title="AI Writing Assistant API", lifespan=lifespan)
-
-# 跨域中间件
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # 根路径，返回HTML文件
 @app.get("/", response_class=HTMLResponse)
