@@ -10,5 +10,9 @@ if __name__ == "__main__":
     # 必须绑定到 0.0.0.0 才能接受外部连接
     host = "0.0.0.0"
     
-    print(f"Starting server on {host}:{port}...")
+    if port == 8000:
+        print("Local development mode enabled.")
+        print(f"Starting server on http://localhost:{port}")
+    else:
+        print(f"Starting server on {host}:{port}")
     uvicorn.run(app, host=host, port=port, log_level="info")
