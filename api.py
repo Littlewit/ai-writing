@@ -13,6 +13,7 @@ load_dotenv()
 
 model = None
 
+# 系统提示词
 system_prompt = """
 专业写作助手提示词（强约束+操作流程版）
 你是高标准专业写作助手。深度理解用户写作指令，严格遵守风格、字数、场景限制，内容原创无重复，语句通顺自然，结构清晰，为用户提供定制化优质写作内容。
@@ -29,6 +30,7 @@ conversation_history = {}
 # 最大历史消息数（避免上下文过长）
 MAX_HISTORY_MESSAGES = 10
 
+# 初始化模型
 async def initialize_model():
     """初始化模型，失败时返回None"""
     global model
@@ -41,7 +43,7 @@ async def initialize_model():
         if not api_key:
             print("Warning: DASHCOPE_API_KEY not set")
             return None
-            
+        # 初始化模型
         model = init_chat_model(
             model="qwen-max",
             model_provider="openai",
@@ -54,6 +56,7 @@ async def initialize_model():
         print(f"Error initializing model: {e}")
         return None
 
+# 应用生命周期管理
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 启动时初始化
@@ -62,8 +65,10 @@ async def lifespan(app: FastAPI):
     # 关闭时清理
     pass
 
+# 应用实例
 app = FastAPI(title="AI Writing Assistant API", lifespan=lifespan)
 
+# 跨域中间件
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -72,10 +77,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 根路径，返回HTML文件
 @app.get("/", response_class=HTMLResponse)
 async def read_root():
     return FileResponse("templates/index.html")
 
+# 健康检查端点
 @app.get("/health")
 async def health_check():
     """健康检查端点"""
@@ -85,10 +92,12 @@ async def health_check():
         "api_key_set": os.getenv("DASHCOPE_API_KEY") is not None
     }
 
+# Favicon 路径，返回图标文件
 @app.get("/templates/favicon.ico")
 async def favicon():
     return FileResponse("templates/favicon.ico")
 
+# 清除指定线程的对话历史
 @app.get("/clear/{thread_id}")
 async def clear_history(thread_id: str):
     """清除指定线程的对话历史"""
@@ -96,6 +105,7 @@ async def clear_history(thread_id: str):
         del conversation_history[thread_id]
     return {"status": "cleared"}
 
+# 生成流式响应
 async def generate_stream(messages: List, thread_id: str):
     """生成流式响应"""
     if model is None:
@@ -153,6 +163,7 @@ async def generate_stream(messages: List, thread_id: str):
             "data": json.dumps({"error": str(e)})
         }
 
+# 流式聊天端点
 @app.get("/stream/{thread_id}")
 async def stream_chat(thread_id: str, message: str):
     # 获取该线程的历史消息
@@ -170,6 +181,7 @@ async def stream_chat(thread_id: str, message: str):
         media_type="text/event-stream"
     )
 
+# 应用入口
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
