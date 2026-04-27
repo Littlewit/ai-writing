@@ -8,6 +8,8 @@ services:
     startCommand: uv run python run_server.py
     healthCheckPath: /health
     envVars:
+      - key: PORT
+        value: 10000
       - key: DASHCOPE_API_KEY
         sync: false
       - key: DASHCOPE_BASE_URL
