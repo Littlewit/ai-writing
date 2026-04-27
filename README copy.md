@@ -30,7 +30,6 @@ uv run python run_server.py
 ## 部署指南
 
 ### Render（推荐）
-
 1. Fork此仓库到你的GitHub
 2. 访问 [Render](https://render.com)
 3. 创建新的Web Service
@@ -41,6 +40,34 @@ uv run python run_server.py
 6. 点击Deploy
 
 Render会自动检测`render.yaml`配置文件进行部署。
+
+### 推送代码到GitHub
+
+**SSH方式**（推荐）：
+```bash
+# 初始化Git
+cd /path/to/project
+git init
+git add .
+git commit -m "Initial commit"
+
+# 生成SSH密钥（如果还没有）
+# ssh-keygen -t ed25519 -C "your_email@example.com"
+# 然后复制 ~/.ssh/id_ed25519.pub 内容到GitHub Settings > SSH and GPG keys
+
+# 添加SSH远程仓库
+git remote add origin git@github.com:你的用户名/ai-writing.git
+git push -u origin main
+```
+
+**HTTPS方式**：
+```bash
+git init
+git add .
+git commit -m "Initial commit"
+git remote add origin https://github.com/你的用户名/ai-writing.git
+git push -u origin main
+```
 
 ### Railway
 
