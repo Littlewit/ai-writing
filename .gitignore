@@ -17,7 +17,7 @@ resources/
 .env
 .env.local
 
-README copy.md
+READMEENV.md
 
 # IDE
 .vscode/
