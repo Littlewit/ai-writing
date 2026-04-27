@@ -16,6 +16,9 @@ resources/
 # Environment
 .env
 .env.local
+.env.example
+
+README copy.md
 
 # IDE
 .vscode/
