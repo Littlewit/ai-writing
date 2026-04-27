@@ -4,19 +4,13 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
-from langchain.chat_models import init_chat_model
-from langchain.agents import create_agent
-from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
-from langchain.messages import HumanMessage
 from sse_starlette.sse import EventSourceResponse
+from langchain.messages import HumanMessage
 import json
 
 load_dotenv()
 
 model = None
-agent = None
-checkpointer = None
-checkpointer_context = None
 
 system_prompt = """
 专业写作助手提示词（强约束+操作流程版）
@@ -29,31 +23,38 @@ system_prompt = """
 5. 第五步：交付优化——若用户有补充、修改需求，快速响应，精准调整，直至产出满足用户全部要求的优质写作内容。
 """
 
-async def initialize_agent():
-    global model, agent, checkpointer, checkpointer_context
-    
-    model = init_chat_model(
-        model="qwen-max",
-        model_provider="openai",
-        api_key=os.getenv("DASHCOPE_API_KEY"),
-        base_url=os.getenv("DASHCOPE_BASE_URL"),
-    )
-    
-    checkpointer_context = AsyncSqliteSaver.from_conn_string("resources/agent.db")
-    checkpointer = await checkpointer_context.__aenter__()
-    
-    agent = create_agent(
-        model=model,
-        checkpointer=checkpointer,
-        system_prompt=system_prompt
-    )
+async def initialize_model():
+    """初始化模型，失败时返回None"""
+    global model
+    try:
+        from langchain.chat_models import init_chat_model
+        
+        api_key = os.getenv("DASHCOPE_API_KEY")
+        base_url = os.getenv("DASHCOPE_BASE_URL")
+        
+        if not api_key:
+            print("Warning: DASHCOPE_API_KEY not set")
+            return None
+            
+        model = init_chat_model(
+            model="qwen-max",
+            model_provider="openai",
+            api_key=api_key,
+            base_url=base_url,
+        )
+        print("Model initialized successfully")
+        return model
+    except Exception as e:
+        print(f"Error initializing model: {e}")
+        return None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await initialize_agent()
+    # 启动时初始化
+    await initialize_model()
     yield
-    if checkpointer_context:
-        await checkpointer_context.__aexit__(None, None, None)
+    # 关闭时清理
+    pass
 
 app = FastAPI(title="AI Writing Assistant API", lifespan=lifespan)
 
@@ -71,29 +72,32 @@ async def read_root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok"}
-
-@app.get("/test")
-async def test_page():
-    return FileResponse("templates/test_stream.html")
+    """健康检查端点"""
+    return {
+        "status": "ok",
+        "model_loaded": model is not None,
+        "api_key_set": os.getenv("DASHCOPE_API_KEY") is not None
+    }
 
 @app.get("/templates/favicon.ico")
 async def favicon():
     return FileResponse("templates/favicon.ico")
 
 async def generate_stream(messages, thread_id):
-    config = {
-        "configurable": {
-            "thread_id": thread_id
+    """生成流式响应"""
+    if model is None:
+        yield {
+            "event": "error",
+            "data": json.dumps({"error": "Model not initialized. Please check DASHCOPE_API_KEY."})
         }
-    }
+        return
     
     try:
         # 添加system prompt作为第一条消息
         system_message = HumanMessage(content=system_prompt)
         all_messages = [system_message] + messages
         
-        # 使用模型的流式输出，同时应用system prompt
+        # 使用模型的流式输出
         full_content = ""
         async for chunk in model.astream(all_messages):
             if hasattr(chunk, 'content') and chunk.content:
@@ -116,7 +120,7 @@ async def generate_stream(messages, thread_id):
         }
             
     except Exception as e:
-        print(f"Debug: Exception in generate_stream = {type(e).__name__}: {e}")
+        print(f"Error in generate_stream: {type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
         yield {
