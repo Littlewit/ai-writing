@@ -1,0 +1,8 @@
+README.md
+main.py
+pyproject.toml
+ai_writing.egg-info/PKG-INFO
+ai_writing.egg-info/SOURCES.txt
+ai_writing.egg-info/dependency_links.txt
+ai_writing.egg-info/requires.txt
+ai_writing.egg-info/top_level.txt

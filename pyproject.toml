@@ -1,0 +1,22 @@
+[project]
+name = "ai-writing"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "langchain>=1.2.15",
+    "langchain-openai>=1.2.1",
+    "langgraph>=1.1.9",
+    "langgraph-checkpoint-sqlite>=3.0.3",
+    "python-dotenv>=1.2.2",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.34.0",
+    "sse-starlette>=2.2.0",
+    "aiosqlite>=0.20.0",
+    "requests>=2.32.0",
+]
+
+[[tool.uv.index]]
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default = true

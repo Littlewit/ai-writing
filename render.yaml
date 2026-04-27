@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: ai-writing-assistant
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: pip install uv && uv sync
+    startCommand: uv run python run_server.py
+    healthCheckPath: /health
+    envVars:
+      - key: DASHCOPE_API_KEY
+        sync: false
+      - key: DASHCOPE_BASE_URL
+        value: https://dashscope.aliyuncs.com/compatible-mode/v1

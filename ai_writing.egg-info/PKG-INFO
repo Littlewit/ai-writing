@@ -1,0 +1,26 @@
+Metadata-Version: 2.4
+Name: ai-writing
+Version: 0.1.0
+Summary: Add your description here
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: langchain>=1.2.15
+Requires-Dist: langchain-openai>=1.2.1
+Requires-Dist: langgraph>=1.1.9
+Requires-Dist: langgraph-checkpoint-sqlite>=3.0.3
+Requires-Dist: python-dotenv>=1.2.2
+
+1. 激活虚拟环境 （Windows PowerShell）
+
+```
+.\.venv\Scripts\Activate.ps1
+```
+2. 激活虚拟环境 （Windows CMD）
+```
+.\.venv\Scripts\activate.bat
+```
+
+使用uv运行脚本：
+```
+uv run main.py
+```
