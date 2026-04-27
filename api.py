@@ -5,7 +5,8 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
-from langchain.messages import HumanMessage
+from langchain.messages import HumanMessage, SystemMessage, AIMessage
+from typing import List
 import json
 
 load_dotenv()
@@ -22,6 +23,11 @@ system_prompt = """
 4. 第四步：合规校验——完成初稿后，逐一核对用户所有要求（风格、字数、场景、结构等），修正不符合约束的内容，优化语句流畅度，确保产出完全符合用户指令。
 5. 第五步：交付优化——若用户有补充、修改需求，快速响应，精准调整，直至产出满足用户全部要求的优质写作内容。
 """
+
+# 对话历史存储（内存中）
+conversation_history = {}
+# 最大历史消息数（避免上下文过长）
+MAX_HISTORY_MESSAGES = 10
 
 async def initialize_model():
     """初始化模型，失败时返回None"""
@@ -83,7 +89,14 @@ async def health_check():
 async def favicon():
     return FileResponse("templates/favicon.ico")
 
-async def generate_stream(messages, thread_id):
+@app.get("/clear/{thread_id}")
+async def clear_history(thread_id: str):
+    """清除指定线程的对话历史"""
+    if thread_id in conversation_history:
+        del conversation_history[thread_id]
+    return {"status": "cleared"}
+
+async def generate_stream(messages: List, thread_id: str):
     """生成流式响应"""
     if model is None:
         yield {
@@ -93,26 +106,38 @@ async def generate_stream(messages, thread_id):
         return
     
     try:
-        # 添加system prompt作为第一条消息
-        system_message = HumanMessage(content=system_prompt)
-        all_messages = [system_message] + messages
+        # 确保第一条消息是 system prompt
+        if not messages or not isinstance(messages[0], SystemMessage):
+            messages = [SystemMessage(content=system_prompt)] + messages
         
         # 使用模型的流式输出
         full_content = ""
-        async for chunk in model.astream(all_messages):
+        async for chunk in model.astream(messages):
             if hasattr(chunk, 'content') and chunk.content:
-                full_content += chunk.content
+                chunk_content = chunk.content
+                full_content += chunk_content
+                
                 try:
+                    # 只发送增量内容
                     yield {
                         "event": "message",
-                        "data": json.dumps({"event": "message", "content": full_content}, ensure_ascii=False)
+                        "data": json.dumps({"event": "message", "content": chunk_content}, ensure_ascii=False)
                     }
                 except Exception:
-                    content_no_emoji = ''.join(c for c in full_content if ord(c) <= 0xFFFF)
+                    content_no_emoji = ''.join(c for c in chunk_content if ord(c) <= 0xFFFF)
                     yield {
                         "event": "message",
                         "data": json.dumps({"event": "message", "content": content_no_emoji})
                     }
+        
+        # 保存到对话历史（只保留最近的消息）
+        new_history = messages + [AIMessage(content=full_content)]
+        # 过滤掉 system prompt，只保留实际对话
+        filtered_history = [msg for msg in new_history if not isinstance(msg, SystemMessage)]
+        # 只保留最近的 MAX_HISTORY_MESSAGES 条消息
+        if len(filtered_history) > MAX_HISTORY_MESSAGES:
+            filtered_history = filtered_history[-MAX_HISTORY_MESSAGES:]
+        conversation_history[thread_id] = filtered_history
         
         yield {
             "event": "done",
@@ -130,7 +155,15 @@ async def generate_stream(messages, thread_id):
 
 @app.get("/stream/{thread_id}")
 async def stream_chat(thread_id: str, message: str):
-    messages = [HumanMessage(content=message)]
+    # 获取该线程的历史消息
+    history = conversation_history.get(thread_id, [])
+    
+    # 只传递最近的历史消息给模型（避免上下文过长）
+    # 最多传递 5 轮对话（10条消息）
+    recent_history = history[-10:] if len(history) > 10 else history
+    
+    # 添加新的用户消息
+    messages = recent_history + [HumanMessage(content=message)]
     
     return EventSourceResponse(
         generate_stream(messages, thread_id),
